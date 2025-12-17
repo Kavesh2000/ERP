@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CREEK FRESH — ERP Home</title>
+    <meta name="theme-color" content="#0ea5b7" />
+    <link rel="manifest" href="/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Use a modern geometric font -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/style.css">
+  </head>
+  <body class="bg-water">
+    <!-- full-page splash canvas for site-wide background bubbles -->
+    <div id="bgSplash" class="bg-splash" aria-hidden="true">
+      <canvas id="backgroundSplash"></canvas>
+    </div>
+    <header class="site-header py-3">
+        <div class="container d-flex align-items-center justify-content-between">
+          <div class="d-flex align-items-center gap-3">
+            <button id="mobileMenuBtn" class="btn btn-link text-white d-md-none" aria-label="Open menu">☰</button>
+            <h1 class="h4 site-title text-white m-0">CREEK FRESH</h1>
+          </div>
+          <div id="offlineBanner" style="display:none; position: absolute; left:50%; transform:translateX(-50%); top:100%; background:#ffecb3; color:#623901; padding:6px 10px; border-radius:8px; font-weight:600; z-index:1200;">Offline — changes save locally</div>
+          <nav class="d-none d-md-flex align-items-center">
+            <a class="nav-link text-white" href="#home" onclick="showView('home')">Home</a>
+            <button id="installBtn" class="btn btn-outline-light ms-2" style="display:none;">Install</button>
+            <button id="authBtn" class="btn btn-outline-light ms-2">Login</button>
+          </nav>
+        </div>
+        <!-- mobile slide-down menu -->
+        <div id="mobileMenu" class="mobile-menu d-md-none" style="display:none;">
+          <div class="container py-2">
+            <a class="d-block text-white py-2" href="#home" onclick="showView('home'); toggleMobileMenu()">Home</a>
+            <button id="installBtnMobile" class="btn btn-outline-light w-100 mb-2" style="display:none;">Install</button>
+            <button id="authBtnMobile" class="btn btn-light w-100">Login</button>
+          </div>
+        </div>
+    </header>
+
+    <main class="container my-5">
+      <!-- persistent splash shown across views -->
+      <!-- top splash removed (replaced by full-page background bubbles). -->
+      <!-- Home / Hero -->
+      <section id="view-home" class="view">
+        <section class="hero rounded-3 text-center text-white modern-home-hero p-3">
+          <div class="splash-overlay"></div>
+          <div class="hero-inner glass p-4 text-center">
+            <h2 class="h2 mb-2"><strong>Water. Delivered. Simplified.</strong></h2>
+            <p class="mb-3" style="opacity:0.95">Fast orders, inventory and sales — optimized for mobile collections and deliveries.</p>
+            <div class="d-flex flex-column flex-sm-row justify-content-center gap-2 mt-2">
+              <button class="btn btn-primary btn-lg" onclick="showView('login')">Sign in</button>
+              <button class="btn btn-outline-light btn-lg" onclick="showView('dashboard')">Quick order</button>
+            </div>
+          </div>
+
+          <!-- small feature cards -->
+          <div class="home-features container mt-4">
+            <div class="row g-3 justify-content-center">
+              <div class="col-12 col-md-4">
+                <div class="feature-card p-3 d-flex align-items-start gap-3">
+                  <div class="feature-icon">
+                    <!-- water drop SVG -->
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                      <path d="M12 2s5 5.5 5 9.5S13.5 19 12 20c-1.5-1-5-6.5-5-8.5S12 2 12 2z" fill="#0ea5b7" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h6 class="mb-1">Fast Orders</h6>
+                    <p class="small text-muted mb-0">Create orders in seconds with auto-filled prices and totals.</p>
+                  </div>
+                </div>
+              </div>
+              <div class="col-12 col-md-4">
+                <div class="feature-card p-3 d-flex align-items-start gap-3">
+                  <div class="feature-icon">
+                    <!-- chart SVG -->
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                      <rect x="3" y="3" width="18" height="18" rx="2" fill="#eef9ff" />
+                      <path d="M6 14v4M10 10v8M14 6v12M18 12v6" stroke="#1d4ed8" stroke-width="1.4" stroke-linecap="round" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h6 class="mb-1">Insights</h6>
+                    <p class="small text-muted mb-0">Admin-only sales chart and daily totals highlight trends and earnings.</p>
+                  </div>
+                </div>
+              </div>
+              <div class="col-12 col-md-4">
+                <div class="feature-card p-3 d-flex align-items-start gap-3">
+                  <div class="feature-icon">
+                    <!-- gallery SVG -->
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                      <rect x="3" y="5" width="18" height="14" rx="2" fill="#fff7ed" />
+                      <circle cx="8" cy="10" r="2" fill="#f59e0b" />
+                      <path d="M21 19l-6-6-4 4-3-3L3 19h18z" fill="#f97316" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h6 class="mb-1">Customers</h6>
+                    <p class="small text-muted mb-0">Manage customer contacts and quick lookups for orders.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- decorative bubbles overlay -->
+          <div class="home-bubbles" aria-hidden="true">
+            <span class="bubble b1"></span>
+            <span class="bubble b2"></span>
+            <span class="bubble b3"></span>
+            <span class="bubble b4"></span>
+            <span class="bubble b5"></span>
+          </div>
+
+          <!-- bottom wave svg -->
+          <div class="hero-wave" aria-hidden="true">
+            <svg viewBox="0 0 1440 120" preserveAspectRatio="none" style="width:100%; height:80px; display:block;">
+              <path d="M0,40 C200,120 350,0 720,40 C1100,80 1240,10 1440,40 L1440 120 L0 120 Z" fill="rgba(255,255,255,0.06)"/>
+            </svg>
+          </div>
+        </section>
+      </section>
+
+  <!-- Login view -->
+  <section id="view-login" class="view" style="display:none;">
+        <div class="row justify-content-center">
+          <div class="col-md-6">
+            <div class="card p-4 shadow">
+              <h3 class="mb-3">Login</h3>
+              <p class="text-muted">Use admin/admin or user/user for demo.</p>
+              <form id="indexLoginForm">
+                <div class="mb-3">
+                  <label class="form-label">Username</label>
+                  <input name="username" class="form-control" required />
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Password</label>
+                  <input name="password" type="password" class="form-control" required />
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Login as</label>
+                  <select name="role" class="form-select">
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <button class="btn btn-primary" type="submit">Login</button>
+                <div id="indexLoginMsg" class="mt-2 text-danger"></div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Dashboard view (hidden until login) -->
+      <section id="view-dashboard" class="view dashboard-container" style="display:none;">
+        <!-- hamburger and sidebar -->
+        <button class="btn btn-outline-light hamburger" onclick="document.getElementById('appSidebar').classList.toggle('open')">☰</button>
+        <aside id="appSidebar" class="sidebar expanded" aria-label="Main navigation">
+          <div class="sidebar-inner d-flex flex-column">
+            <div class="sidebar-top d-flex align-items-center justify-content-between px-3 py-2">
+              <strong class="sidebar-brand">CREEK FRESH</strong>
+            </div>
+            <nav class="mt-2 mb-2 flex-grow-1">
+              <ul class="menu list-unstyled">
+                <!-- 1. Dashboard -->
+                <li class="menu-item sidebar-parent">
+                  <button type="button" class="sidebar-parent-toggle d-flex align-items-center w-100 btn btn-link text-start px-2 py-2"><span class="icon">📊</span><span class="label">Dashboard</span><span class="caret ms-auto">▸</span></button>
+                  <ul class="list-unstyled sidebar-submenu">
+                    <li><a href="javascript:void(0);" class="d-flex align-items-center sidebar-link" data-section="dashboard_daily_sales"><span class="icon">📈</span><span class="label">Daily Sales</span></a></li>
+                    <li><a href="javascript:void(0);" class="d-flex align-items-center sidebar-link" data-section="dashboard_water_volume"><span class="icon">💧</span><span class="label">Water Volume (L)</span></a></li>
+                    <li><a href="javascript:void(0);" class="d-flex align-items-center sidebar-link" data-section="dashboard_revenue"><span class="icon">💰</span><span class="label">Revenue Summary</span></a></li>
+                  </ul>
+                </li>
+
+                <!-- 2. Sales -->
+                <li class="menu-item sidebar-parent">
+                  <button type="button" class="sidebar-parent-toggle d-flex align-items-center w-100 btn btn-link text-start px-2 py-2"><span class="icon">💳</span><span class="label">Sales</span><span class="caret ms-auto">▸</span></button>
+                  <ul class="list-unstyled sidebar-submenu">
+                    <li><a href="javascript:void(0);" class="d-flex align-items-center sidebar-link" data-section="sales_new_order"><span class="icon">➕</span><span class="label">New Refill Sale</span></a></li>
+                    <li><a href="javascript:void(0);" class="d-flex align-items-center sidebar-link" data-section="sales_my_orders"><span class="icon">👤</span><span class="label">My Orders</span></a></li>
+                  </ul>
+                </li>
+
+                <!-- 3. Inventory -->
+                <li class="menu-item sidebar-parent">
+                  <button type="button" class="sidebar-parent-toggle d-flex align-items-center w-100 btn btn-link text-start px-2 py-2"><span class="icon">📦</span><span class="label">Inventory</span><span class="caret ms-auto">▸</span></button>
+                  <ul class="list-unstyled sidebar-submenu">
+                    <li><a href="javascript:void(0);" class="d-flex align-items-center sidebar-link" data-section="inventory_water_stock"><span class="icon">💧</span><span class="label">Water Stock (L)</span></a></li>
+                    <li><a href="javascript:void(0);" class="d-flex align-items-center sidebar-link" data-section="inventory_bottle_stock"><span class="icon">🔋</span><span class="label">Empty Bottles</span></a></li>
+
+                  </ul>
+                </li>
+
+                <!-- 4. Reports -->
+                <li class="menu-item sidebar-parent">
+                  <button type="button" class="sidebar-parent-toggle d-flex align-items-center w-100 btn btn-link text-start px-2 py-2"><span class="icon">📋</span><span class="label">Reports</span><span class="caret ms-auto">▸</span></button>
+                  <ul class="list-unstyled sidebar-submenu">
+                    <li><a href="javascript:void(0);" class="d-flex align-items-center sidebar-link" data-section="reports_daily_sales"><span class="icon">📅</span><span class="label">Daily Sales Report</span></a></li>
+                    <li><a href="javascript:void(0);" class="d-flex align-items-center sidebar-link" data-section="reports_weekly_sales"><span class="icon">📊</span><span class="label">Weekly Sales Report</span></a></li>
+                    <li><a href="javascript:void(0);" class="d-flex align-items-center sidebar-link" data-section="reports_monthly_sales"><span class="icon">📆</span><span class="label">Monthly Sales Report</span></a></li>
+                    <li><a href="javascript:void(0);" class="d-flex align-items-center sidebar-link" data-section="reports_inventory"><span class="icon">📦</span><span class="label">Inventory Report</span></a></li>
+                    <li><a href="javascript:void(0);" class="d-flex align-items-center sidebar-link" data-section="reports_pl"><span class="icon">💹</span><span class="label">P&L Summary</span></a></li>
+                  </ul>
+                </li>
+
+                <!-- 5. Admin (hidden for non-admin users) -->
+                <li class="menu-item sidebar-parent admin-only-menu">
+                  <button type="button" class="sidebar-parent-toggle d-flex align-items-center w-100 btn btn-link text-start px-2 py-2"><span class="icon">⚙️</span><span class="label">Admin</span><span class="caret ms-auto">▸</span></button>
+                  <ul class="list-unstyled sidebar-submenu">
+                    <li><a href="javascript:void(0);" class="d-flex align-items-center sidebar-link" data-section="admin_manage_prices"><span class="icon">💰</span><span class="label">Manage Prices</span></a></li>                    <li><a href="javascript:void(0);" class="d-flex align-items-center sidebar-link" data-section="admin_db_export"><span class="icon">🗄️</span><span class="label">Export DB (CSV/ZIP)</span></a></li>                  </ul>
+                </li>
+              </ul>
+            </nav>
+            <div class="sidebar-bottom px-3 py-2">
+              <!-- Auth is handled by the header `#authBtn` now -->
+            </div>
+          </div>
+        </aside>
+        <div class="dashboard-content">
+          <div class="content-area">
+            <div id="newOrderCard" class="card p-3 mb-3 modern-card">
+              <h6>New Order</h6>
+              <form id="orderForm">
+                <div class="mb-2">
+                  <label class="form-label">Product</label>
+                  <select id="productSelect" class="form-select"></select>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">Unit Price (KSH)</label>
+                  <input id="unitPrice" class="form-control" readonly />
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">Quantity</label>
+                  <div class="d-flex gap-2 align-items-center">
+                    <select id="quantityMode" class="form-select" style="width:140px">
+                      <option value="liters" selected>Liters</option>
+                      <option value="bottles">Bottles</option>
+                    </select>
+                    <input id="quantity" type="number" class="form-control" value="1" min="0.1" step="0.1" />
+                  </div>
+                  <div id="quantityHelp" class="form-text">Enter liters (decimals allowed) or choose 'Bottles' to enter count.</div>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">Order date & time</label>
+                  <input id="orderDate" type="datetime-local" class="form-control" />
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">Payment Method</label>
+                  <select id="paymentMethod" class="form-select">
+                    <option>Cash</option>
+                    <option>Mpesa</option>
+                  </select>
+                </div>
+                <div class="form-check mb-2">
+                  <input class="form-check-input" type="checkbox" id="useBottle">
+                  <label class="form-check-label" for="useBottle">Use bottle (decrement empty bottle stock)</label>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">Total (KSH)</label>
+                  <input id="total" class="form-control" readonly />
+                </div>
+                <button class="btn btn-primary" type="submit">Create Order</button>
+                <div id="orderMsg" class="mt-2 text-success"></div>
+              </form>
+            </div>
+              <div id="productsCard" class="card p-3 mb-3 modern-card">
+              <h6>Products</h6>
+              <form id="productForm" class="mb-2">
+                <div class="mb-2">
+                  <input id="prodName" class="form-control" placeholder="Product name" required />
+                </div>
+                <div class="mb-2">
+                  <input id="prodPrice" class="form-control" placeholder="Unit price" required />
+                </div>
+                <input type="hidden" id="prodId" />
+                <button class="btn btn-success" type="submit">Add / Update Product</button>
+                <button id="prodCancel" type="button" class="btn btn-outline-secondary ms-2">Cancel</button>
+              </form>
+              <div id="productsList">Loading...</div>
+            </div>
+              <div id="dailySummaryCard" class="card p-3 mb-3 modern-card">
+                <h6>Today's Sales</h6>
+                <div id="dailySummary">
+                  <p>Loading...</p>
+                </div>
+              </div>
+              <!-- Stock card (hidden by default) -->
+              <div id="stockCard" class="modern-card" style="display:none; margin: 12px 6px;">
+                <div class="card-header">
+                  <h5 class="card-title">Stock</h5>
+                  <small class="text-muted">Admin-only inventory overview (placeholder)</small>
+                </div>
+                <div class="card-body">
+                  <p class="mb-2">This is a placeholder for the Stock panel. You can list product stock levels here, add incoming deliveries, or adjust quantities.</p>
+                  <div style="min-height:80px; display:flex; align-items:center; justify-content:center; color:#0a5566; opacity:0.9;">
+                    <div>
+                      <div style="font-size:22px; font-weight:600;">No stock data yet</div>
+                      <div style="font-size:12px; color: #02606f; opacity:0.8">Use the API or admin tools to add inventory records.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <!-- Water stock (admin-only) -->
+              <div id="waterStockCard" class="modern-card" style="display:none; margin: 12px 6px;">
+                <div class="card-header"><h5 class="card-title">Water Stock</h5><small class="text-muted">Current tank levels and sources</small></div>
+                <div class="card-body" id="waterStockBody">
+                  <p>Loading water stock...</p>
+                </div>
+              </div>
+
+              <!-- Bottle stock (admin-only) -->
+              <div id="bottleStockCard" class="modern-card" style="display:none; margin: 12px 6px;">
+                <div class="card-header"><h5 class="card-title">Bottle Stock</h5><small class="text-muted">Empty bottle counts and adjustments</small></div>
+                <div class="card-body" id="bottleStockBody">
+                  <p>Loading bottle stock...</p>
+                </div>
+              </div>
+
+              <!-- Refill tracking (admin-only) -->
+              <div id="refillTrackingCard" class="modern-card" style="display:none; margin: 12px 6px;">
+                <div class="card-header"><h5 class="card-title">Refill Tracking</h5><small class="text-muted">Track refills and source movements</small></div>
+                <div class="card-body" id="refillTrackingBody">
+                  <p>Loading refill movements...</p>
+                </div>
+              </div>
+          </div>
+          <div class="col-md-8">
+            <!-- (Removed duplicate Sales & Orders header + logout button) -->
+            <!-- NEW DASHBOARD CARDS -->
+            <div id="dashboardDailySalesCard" class="modern-card" style="display:none;">
+              <h6>📈 Daily Sales</h6>
+              <div id="dashboardDailySalesBody">Loading...</div>
+            </div>
+            <div id="dashboardWaterVolumeCard" class="modern-card" style="display:none;">
+              <h6>💧 Water Volume (L)</h6>
+              <div id="dashboardWaterVolumeBody">Loading...</div>
+            </div>
+            <div id="dashboardRevenueCard" class="modern-card" style="display:none;">
+              <h6>💰 Revenue Summary</h6>
+              <div id="dashboardRevenueBody">Loading...</div>
+            </div>
+
+            <!-- NEW SALES CARDS -->
+            <div id="salesNewOrderCard" class="modern-card" style="display:none;">
+              <h6>➕ New Refill Sale</h6>
+              <div id="salesNewOrderBody">Loading...</div>
+            </div>
+            <div id="salesMyOrdersCard" class="modern-card" style="display:none;">
+              <h6>👤 My Orders</h6>
+              <div class="mb-3">
+                <div class="row g-2">
+                  <div class="col-md-4">
+                    <label class="form-label small">Filter by Date</label>
+                    <input type="date" id="myOrdersDate" class="form-control form-control-sm" />
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label small">Filter by Type</label>
+                    <select id="myOrdersTypeFilter" class="form-control form-control-sm">
+                      <option value="">All Products</option>
+                      <option value="water">Water Only</option>
+                      <option value="bottle">Bottles Only</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label small">&nbsp;</label>
+                    <button class="btn btn-sm btn-primary w-100" onclick="loadMyOrders()">Filter</button>
+                  </div>
+                </div>
+              </div>
+              <div id="salesMyOrdersBody">Loading...</div>
+            </div>
+
+            <!-- NEW INVENTORY CARDS -->
+            <div id="inventoryWaterStockCard" class="modern-card" style="display:none;">
+              <h6>💧 Water Stock (L)</h6>
+              <div id="inventoryWaterStockBody">Loading...</div>
+            </div>
+            <div id="inventoryBottleStockCard" class="modern-card" style="display:none;">
+              <h6>🔋 Empty Bottles</h6>
+              <div id="inventoryBottleStockBody">Loading...</div>
+            </div>
+
+
+
+            <div id="adminDbExportCard" class="modern-card" style="display:none;">
+              <h6>🗄️ Export Database (Admin)</h6>
+              <div id="adminDbExportBody">Loading...</div>
+            </div>
+
+            <!-- MODALS FOR INVENTORY MANAGEMENT -->
+            <div id="waterSourceModal" style="display:none;" class="modal-overlay" onclick="if(event.target === this) closeWaterSourceModal()">
+              <div class="modal-content" onclick="event.stopPropagation()">
+                <h5>Manage Water Tank</h5>
+                <div class="form-group mb-3">
+                  <label class="form-label">Tank Name</label>
+                  <input type="text" id="wsSourceId" class="form-control" placeholder="e.g., Tank 1, Tank 2" />
+                </div>
+                <div class="form-group mb-3">
+                  <label class="form-label">Quantity (Liters)</label>
+                  <input type="number" id="wsQuantity" class="form-control" step="0.01" value="0" />
+                </div>
+                <div class="btn-group">
+                  <button class="btn btn-primary btn-sm" onclick="saveWaterSource()">Save</button>
+                  <button class="btn btn-secondary btn-sm" onclick="closeWaterSourceModal()">Cancel</button>
+                </div>
+              </div>
+            </div>
+
+            <div id="bottleModal" style="display:none;" class="modal-overlay" onclick="if(event.target === this) closeBottleModal()">
+              <div class="modal-content" onclick="event.stopPropagation()">
+                <h5>Manage Bottle Stock</h5>
+                <div class="form-group mb-3">
+                  <label class="form-label">Bottle Type</label>
+                  <select id="bsProductId" class="form-control form-select"></select>
+                </div>
+                <div class="form-group mb-3">
+                  <label class="form-label">Quantity</label>
+                  <input type="number" id="bsQuantity" class="form-control" step="1" value="0" />
+                </div>
+                <div class="btn-group">
+                  <button class="btn btn-primary btn-sm" onclick="saveBottleStock()">Save</button>
+                  <button class="btn btn-secondary btn-sm" onclick="closeBottleModal()">Cancel</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- NEW REPORTS CARDS -->
+            <div id="reportsDailySalesCard" class="modern-card" style="display:none;">
+              <h6>📅 Daily Sales Report</h6>
+              <div id="reportsDailySalesBody">Loading...</div>
+            </div>
+            <div id="reportsWeeklySalesCard" class="modern-card" style="display:none;">
+              <h6>📊 Weekly Sales Report</h6>
+              <div id="reportsWeeklySalesBody">Loading...</div>
+            </div>
+            <div id="reportsMonthlySalesCard" class="modern-card" style="display:none;">
+              <h6>📆 Monthly Sales Report</h6>
+              <div id="reportsMonthlySalesBody">Loading...</div>
+            </div>
+            <div id="reportsInventoryCard" class="modern-card" style="display:none;">
+              <h6>📦 Inventory Report</h6>
+              <div id="reportsInventoryBody">Loading...</div>
+            </div>
+            <div id="reportsPLCard" class="modern-card" style="display:none;">
+              <h6>💹 P&L Summary</h6>
+              <div id="reportsPLBody">Loading...</div>
+            </div>
+
+            <!-- ADMIN SECTION -->
+            <div id="adminManagePricesCard" class="modern-card" style="display:none;">
+              <h6>💰 Manage Water Prices</h6>
+             
+
+              <!-- Add Product (choose category + template) -->
+              <div class="card p-3 mb-3" style="background-color: rgba(255,255,255,0.03); border-radius:8px;">
+                <form id="adminAddProductRow" class="row g-2 align-items-center">
+                  <div class="col-5">
+                    <label class="form-label small mb-1">Product name</label>
+                    <input id="adminNewProdName" class="form-control form-control-sm" placeholder="Custom name" />
+                  </div>
+                  <div class="col-auto">
+                    <label class="form-label small mb-1">Product Type</label>
+                    <select id="adminNewProdType" class="form-select form-select-sm">
+                      <option value="water">Water</option>
+                      <option value="bottle">Empty Bottle</option>
+                    </select>
+                  </div>
+                  <div class="col-auto">
+                    <label class="form-label small mb-1">Price</label>
+                    <input id="adminNewProdPrice" type="number" step="0.01" min="0" class="form-control form-control-sm" style="width:110px" placeholder="0.00" />
+                  </div>
+                  <div class="col-auto align-self-end">
+                    <button id="adminAddProdBtn" class="btn btn-sm btn-success">Add Product</button>
+                  </div>
+                </form>
+              </div>
+
+              <div id="adminPricesBody">Loading...</div>
+            </div>
+
+            <!-- LEGACY CARDS (for backward compatibility, hidden by default) -->
+            <div id="salesCard" class="card p-3 mb-3 modern-card">
+              <h6>Sales</h6>
+              <div class="mb-2">
+                <label class="form-label">Filter by date</label>
+                <input id="salesDate" type="date" class="form-control" />
+              </div>
+              <div id="salesList">Loading...</div>
+            </div>
+            <div id="ordersCard" class="card p-3">
+              <h6>Orders</h6>
+              <div class="mb-2">
+                <label class="form-label">Filter orders by date</label>
+                <input id="ordersDate" type="date" class="form-control" />
+              </div>
+              <div id="ordersList">Loading...</div>
+            </div>
+            <!-- Reports cards (admin-only) -->
+            <div id="reportsDailyCard" class="card p-3 modern-card" style="display:none; margin-top:12px;">
+              <h6>Daily Sales Report</h6>
+              <div id="reportsDailyBody">Loading daily sales report...</div>
+            </div>
+
+            <div id="reportsStockCard" class="card p-3 modern-card" style="display:none; margin-top:12px;">
+              <h6>Stock Report</h6>
+              <div id="reportsStockBody">Loading stock report...</div>
+            </div>
+            <!-- upload section removed to keep dashboard focused -->
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="py-4 text-center text-muted">
+      <div class="container">© CREEK FRESH — Prototype</div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- load three.js locally -->
+  <script src="/assets/vendor/three.min.js"></script>
+  <!-- Chart.js for sales graph -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="assets/js/splash.js?v=2"></script>
+  <script src="assets/js/offline.js?v=1"></script>
+  <script src="assets/js/app.js?v=2"></script>
+  <script>
+    // Register service worker and handle add-to-home-screen prompt
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const btn = document.getElementById('installBtn');
+      const btnMobile = document.getElementById('installBtnMobile');
+      if(btn){ btn.style.display = ''; btn.addEventListener('click', async ()=>{ btn.style.display = 'none'; try{ deferredPrompt.prompt(); const choice = await deferredPrompt.userChoice; deferredPrompt = null; }catch(err){} }); }
+      if(btnMobile){ btnMobile.style.display = ''; btnMobile.addEventListener('click', async ()=>{ btnMobile.style.display = 'none'; try{ deferredPrompt.prompt(); const choice = await deferredPrompt.userChoice; deferredPrompt = null; }catch(err){} }); }
+    });
+
+    // Register service worker if supported
+    if('serviceWorker' in navigator){
+      window.addEventListener('load', ()=>{
+        navigator.serviceWorker.register('/assets/js/service-worker.js').then(reg => {
+          console.log('ServiceWorker registered', reg.scope);
+        }).catch(err => console.warn('SW registration failed', err));
+      });
+    }
+  </script>
+  <script>
+    function updateOnlineUI(){ const b = document.getElementById('offlineBanner'); if(b){ b.style.display = navigator.onLine ? 'none' : ''; } }
+    updateOnlineUI();
+    window.addEventListener('online', async ()=>{ updateOnlineUI(); try{ if(window.offlineQueue && typeof window.offlineQueue.flush==='function') await window.offlineQueue.flush(); }catch(e){} });
+    window.addEventListener('offline', updateOnlineUI);
+  </script>
+  <!-- Order detail modal -->
+  <div class="modal fade" id="orderDetailModal" tabindex="-1" aria-labelledby="orderDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="orderDetailModalLabel">Order details</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div id="orderDetailBody">Loading...</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Price history modal -->
+  <div class="modal fade" id="priceHistoryModal" tabindex="-1" aria-labelledby="priceHistoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="priceHistoryModalLabel">Price History</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="priceHistoryBody">Loading...</div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+    <script>
+      // mobile menu toggle
+      function toggleMobileMenu(){
+        const m = document.getElementById('mobileMenu');
+        if(!m) return;
+        if(m.style.display === 'none' || !m.style.display){ m.style.display = 'block'; }
+        else { m.style.display = 'none'; }
+      }
+      document.addEventListener('DOMContentLoaded', ()=>{
+        const btn = document.getElementById('mobileMenuBtn');
+        if(btn) btn.addEventListener('click', ()=> toggleMobileMenu());
+        const am = document.getElementById('authBtnMobile');
+        if(am) am.addEventListener('click', ()=> showView('login'));
+      });
+
+      // simple view switcher
+      function showView(name){
+        // protect dashboard view: if requested and we don't have a known current user, run auth check
+        if(name === 'dashboard' && !window.currentUser){
+          return showDashboardIfAuthed();
+        }
+        document.querySelectorAll('.view').forEach(el=>el.style.display='none');
+        const el = document.getElementById('view-'+name);
+        if(el) el.style.display='block';
+        // add a body class so we can hide/show dashboard chrome via CSS
+        if(name === 'dashboard'){
+          document.body.classList.add('dashboard-active');
+        } else {
+          document.body.classList.remove('dashboard-active');
+        }
+        // Ensure the sidebar and hamburger are fully hidden on non-dashboard views
+        try{
+          const sb = document.getElementById('appSidebar');
+          const hb = document.querySelector('.hamburger');
+          if(name === 'dashboard'){
+            if(sb) sb.style.display = '';
+            if(hb) hb.style.display = '';
+          } else {
+            if(sb) { sb.style.display = 'none'; sb.classList.remove('open'); }
+            if(hb) hb.style.display = 'none';
+          }
+        }catch(e){/* ignore */}
+      }
+
+      // login handler inside index
+      document.addEventListener('DOMContentLoaded', ()=>{
+        const f = document.getElementById('indexLoginForm');
+        if(f){
+            f.addEventListener('submit', async (e)=>{
+            e.preventDefault();
+            const data = {username: f.username.value, password: f.password.value, role: f.role ? f.role.value : undefined};
+            const res = await fetch('/api/login', {method:'POST', headers:{'content-type':'application/json'}, credentials:'same-origin', body:JSON.stringify(data)});
+            const msg = document.getElementById('indexLoginMsg');
+            if(res.ok){
+              // store returned user on the client (helps the SPA know role immediately)
+              const j = await res.json().catch(()=>({}));
+              if(j && j.user){ window.currentUser = j.user; try{ updateAuthButton(); }catch(e){} }
+              // show dashboard and initialize
+              showView('dashboard');
+              try{ await initDashboard(); }catch(err){ console.error(err); }
+            } else {
+              const j = await res.json().catch(()=>({error:'Login failed'}));
+              msg.textContent = j.error || 'Login failed';
+            }
+          });
+        }
+        // show home by default
+        showView('home');
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create New Order</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f5f6fa;
+    }
+    .container {
+      display: flex;
+      gap: 20px;
+      padding: 20px;
+    }
+    .grid {
+      flex: 2;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 15px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .card:hover { transform: scale(1.03); }
+    .form-box {
+      flex: 1;
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    label { display: block; margin-top: 15px; font-weight: bold; }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      margin-top: 5px;
+    }
+    .summary {
+      margin-top: 20px;
+      background: #f1f2f6;
+      padding: 15px;
+      border-radius: 10px;
+    }
+    .btn {
+      width: 100%;
+      margin-top: 20px;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      background: #0984e3;
+      color: #fff;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .btn:hover { background: #0769b4; }
+  </style>
+</head>
+<body>
+
+<h2 style="padding: 20px;">Create New Order</h2>
+
+<div class="container">
+
+  <!-- Product Grid -->
+  <div class="grid" id="productGrid"></div>
+
+  <!-- Order Form -->
+  <div class="form-box">
+    <h3>Order Details</h3>
+
+    <label>Product</label>
+    <select id="productSelect"></select>
+
+    <label>Quantity</label>
+    <input type="number" id="qty" min="1" value="1" />
+
+    <label>Payment Method</label>
+    <select id="payment">
+      <option value="Cash">Cash</option>
+      <option value="Mpesa">Mpesa</option>
+    </select>
+
+    <label>Bottle Used?</label>
+    <select id="bottle">
+      <option value="false">No</option>
+      <option value="true">Yes</option>
+    </select>
+
+    <label>Date</label>
+    <input type="date" id="date" />
+
+    <div class="summary">
+      <h4>Summary</h4>
+      <p id="summaryText">Select a product</p>
+    </div>
+
+    <button class="btn" onclick="createOrder()">Create Order</button>
+  </div>
+</div>
+
+<script>
+let products = [];
+let selectedProduct = null;
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("date").value = new Date().toISOString().split('T')[0];
+  loadProducts();
+});
+
+function loadProducts() {
+  fetch('/api/products')
+    .then(res => res.json())
+    .then(data => {
+      products = data;
+      renderGrid();
+      populateProductSelect();
+    });
+}
+
+function renderGrid() {
+  const grid = document.getElementById('productGrid');
+  grid.innerHTML = '';
+
+  products.forEach(p => {
+    let card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `<h3>${p.name}</h3><p>Ksh ${p.unit_price}</p>`;
+    card.onclick = () => selectProduct(p);
+    grid.appendChild(card);
+  });
+}
+
+function populateProductSelect() {
+  const select = document.getElementById('productSelect');
+  select.innerHTML = '';
+  products.forEach(p => {
+    select.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+  });
+  select.onchange = () => {
+    const id = select.value;
+    selectedProduct = products.find(p => p.id == id);
+    updateSummary();
+  };
+}
+
+function selectProduct(prod) {
+  selectedProduct = prod;
+  document.getElementById('productSelect').value = prod.id;
+  updateSummary();
+}
+
+function updateSummary() {
+  if (!selectedProduct) return;
+  const qty = Number(document.getElementById('qty').value);
+  const total = qty * selectedProduct.unit_price;
+  document.getElementById('summaryText').innerHTML = `
+    <b>Product:</b> ${selectedProduct.name}<br>
+    <b>Unit Price:</b> Ksh ${selectedProduct.unit_price}<br>
+    <b>Quantity:</b> ${qty}<br>
+    <b>Total:</b> Ksh ${total}
+  `;
+}
+
+function createOrder() {
+  if (!selectedProduct) return alert("Select a product first.");
+
+  const payload = {
+    product_id: selectedProduct.id,
+    quantity: Number(document.getElementById('qty').value),
+    payment_method: document.getElementById('payment').value,
+    use_bottle: document.getElementById('bottle').value === 'true',
+    order_date: document.getElementById('date').value
+  };
+
+  fetch('/api/orders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.error) return alert(data.error);
+    alert("Order created successfully!");
+  })
+  .catch(() => alert("Failed to send order."));
+}
+</script>
+
+</body>
+</html>
+
+
+```python
+# --- Backend Order Creation Endpoint (Updated for Cash & Mpesa) ---
+@app.route('/api/orders/new', methods=['POST'])
+def api_create_new_order():
+    u = session.get('user')
+    if not u:
+        return jsonify({'error': 'unauthenticated'}), 401
+
+    data = request.get_json() or {}
+
+    # Extract fields coming from order.html
+    product_id = data.get('product_id')
+    quantity = data.get('quantity')
+    payment_method = data.get('payment_method')  # Cash or Mpesa
+    order_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    use_bottle = data.get('use_bottle', False)
+
+    # Validate required fields
+    if not product_id:
+        return jsonify({'error': 'product_id required'}), 400
+
+    try:
+        product_id = int(product_id)
+        quantity = float(quantity)
+    except:
+        return jsonify({'error': 'invalid product_id or quantity'}), 400
+
+    if payment_method not in ["Cash", "Mpesa"]:
+        return jsonify({'error': 'payment_method must be Cash or Mpesa'}), 400
+
+    try:
+        order = db.record_order(
+            product_id=product_id,
+            quantity=quantity,
+            payment_method=payment_method,
+            order_date=order_date,
+            created_by=u.get('id'),
+            use_bottle=bool(use_bottle)
+        )
+    except Exception as e:
+        return jsonify({'error': 'failed to create order', 'detail': str(e)}), 500
+
+    return jsonify({'ok': True, 'order': order}), 201
+```
