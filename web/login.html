@@ -39,21 +39,41 @@
     </main>
 
     <script>
-    document.getElementById('loginForm').addEventListener('submit', async function(e){
-      e.preventDefault();
-      const f = e.target;
-      const data = {username: f.username.value, password: f.password.value, role: f.role ? f.role.value : undefined};
-      const res = await fetch('/api/login', {method:'POST', headers:{'content-type':'application/json'}, credentials:'same-origin', body:JSON.stringify(data)});
-      if(res.ok){
-        const j = await res.json().catch(()=>({}));
-        if(j && j.user) window.currentUser = j.user;
-        // navigate to dashboard (will re-check auth server-side if necessary)
-        window.location.href = '/dashboard';
-      } else {
-        const j = await res.json();
-        document.getElementById('msg').textContent = j.error || 'Login failed';
-      }
-    });
+      document.getElementById('loginForm').addEventListener('submit', async function(e){
+        e.preventDefault();
+        const f = e.target;
+        const data = {
+          username: f.username.value,
+          password: f.password.value,
+          role: f.role ? f.role.value : undefined
+        };
+
+        try {
+          const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include', // <-- updated from same-origin
+            body: JSON.stringify(data)
+          });
+
+          console.log('Response status:', res.status);
+          console.log('Set-Cookie header:', res.headers.get('set-cookie'));
+
+          const j = await res.json().catch(() => ({}));
+
+          if (res.ok && j.user) {
+            window.currentUser = j.user;
+            // navigate to dashboard
+            window.location.href = '/dashboard';
+          } else {
+            document.getElementById('msg').textContent = j.error || 'Login failed';
+          }
+
+        } catch(err) {
+          console.error('Login request failed:', err);
+          document.getElementById('msg').textContent = 'Login request failed';
+        }
+      });
     </script>
   </body>
-  </html>
+</html>
