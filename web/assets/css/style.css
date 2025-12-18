@@ -160,6 +160,10 @@ main.container {
 .sidebar.open{transform:translateX(0)}
 .hamburger{ display: none; }
 
+/* Hide admin-only navigation items by default (prevents the Admin/Export DB link from appearing before JS runs) */
+.admin-only-menu{ display: none; }
+
+
 /* show sidebar/hamburger only when dashboard view is active */
 body.dashboard-active .sidebar{ display: block; }
 body.dashboard-active .hamburger{ display: block; position:fixed;left:10px;top:18px;z-index:1100 }

@@ -70,6 +70,37 @@ function showToast(message, type){
   }catch(e){ console.log('toast', message); }
 }
 
+// Helper: create and trigger a CSV download from an array of objects or arrays
+function downloadCSV(filename, rows){
+  try{
+    if(!rows) rows = [];
+    // If rows is an array of objects, derive headers
+    let csv = '';
+    if(rows.length === 0){ csv = '';
+    } else if(typeof rows[0] === 'object' && !Array.isArray(rows[0])){
+      const keys = Object.keys(rows[0]);
+      csv += keys.join(',') + "\n";
+      rows.forEach(r => {
+        csv += keys.map(k => { const v = r[k]; return '"'+String(v === null || v === undefined ? '' : String(v)).replace(/"/g,'""')+'"'; }).join(',') + "\n";
+      });
+    } else {
+      // array of arrays
+      rows.forEach(r => {
+        csv += r.map(c => '"'+String(c === null || c === undefined ? '' : String(c)).replace(/"/g,'""')+'"').join(',') + "\n";
+      });
+    }
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 5000);
+  }catch(e){ console.error('downloadCSV failed', e); }
+} 
+
 // Update the header auth button text/state based on `window.currentUser`
 function updateAuthButton(){
   try{
@@ -120,16 +151,20 @@ document.addEventListener('click', (ev)=>{
 function hideAdminMenuItems(){
   try{
     const isAdmin = window.currentUser && window.currentUser.role === 'admin';
-    if(!isAdmin){
-      const inventoryParent = Array.from(document.querySelectorAll('#appSidebar .sidebar-parent')).find(p => p.textContent.includes('Inventory'));
-      const reportsParent = Array.from(document.querySelectorAll('#appSidebar .sidebar-parent')).find(p => p.textContent.includes('Reports'));
-      const adminParent = Array.from(document.querySelectorAll('#appSidebar .sidebar-parent')).find(p => p.textContent.includes('Admin'));
-      if(inventoryParent) inventoryParent.style.display = 'none';
-      if(reportsParent) reportsParent.style.display = 'none';
-      if(adminParent) adminParent.style.display = 'none';
+    // Find the Admin parent menu item
+    const adminParent = Array.from(document.querySelectorAll('#appSidebar .sidebar-parent')).find(p => p.textContent.includes('Admin'));
+    if(!adminParent) return;
+    if(isAdmin){
+      // reveal admin menu: remove the admin-only class and clear any inline hide
+      adminParent.classList.remove('admin-only-menu');
+      adminParent.style.display = '';
+    } else {
+      // hide admin menu: add the admin-only class and hide it
+      adminParent.classList.add('admin-only-menu');
+      adminParent.style.display = 'none';
     }
   }catch(e){ console.warn('hideAdminMenuItems failed', e); }
-}
+} 
 
 // Initialize dashboard UI: sidebar behaviour, data loaders, and logout wiring
 async function initDashboard(){
@@ -313,6 +348,14 @@ function showDashboardSection(name){
       }
     }catch(e){}
   }catch(e){}
+
+  // Prevent access to admin routes from non-admin users (client-side guard)
+  if(name && name.startsWith('admin_') && !(window.currentUser && window.currentUser.role === 'admin')){
+    showToast('Admin access required', 'error');
+    // ensure any admin card is hidden
+    try{ const c = document.getElementById('adminDbExportCard'); if(c) c.style.display = 'none'; }catch(e){}
+    return;
+  }
 
   // Route to appropriate section
   const cardMap = {
@@ -926,11 +969,42 @@ async function loadReportsWeekly(){
     const days = 7; const now = new Date(); const labels = []; const map = {};
     for(let i=days-1;i>=0;i--){ const d=new Date(now); d.setDate(now.getDate()-i); const key=localDateKey(d); labels.push(key); map[key]=0; }
     let qty = 0;
-    (orders||[]).forEach(o=>{ const d=localDateKey(o.timestamp || new Date()); if(d in map){ map[d] += parseFloat(o.total||0); qty += computeLitres(o); } });
+    // accumulate both amount and litres per day
+    const litresMap = {};
+    Object.keys(map).forEach(k=> litresMap[k] = 0);
+    (orders||[]).forEach(o=>{ const d=localDateKey(o.timestamp || new Date()); if(d in map){ map[d] += parseFloat(o.total||0); qty += computeLitres(o); litresMap[d] += computeLitres(o); } });
     const data = labels.map(l=>parseFloat((map[l]||0).toFixed(2)));
+    const litresData = labels.map(l=>parseFloat((litresMap[l]||0).toFixed(2)));
     const total = data.reduce((a,b)=>a+b,0);
-    outEl.innerHTML = `<p><strong>Last ${days} days</strong> • Total litres (as recorded): <strong>${qty.toFixed(2)} L</strong> • Total amount: <strong>${total.toFixed(2)} KSH</strong></p><div id="reportsWeeklyChartWrap"></div>`; 
+    // compute bottle stats for the week (include bottles used in water orders)
+    const ordersInWeek = (orders||[]).filter(o => labels.includes(localDateKey(o.timestamp || new Date())));
+    const bottlesFromWaterW = ordersInWeek.reduce((s,o)=> s + (parseInt(o.bottles_used||0) > 0 ? parseInt(o.bottles_used) : 0), 0);
+    const bottleRevenueFromWaterW = ordersInWeek.reduce((s,o)=> s + ((parseInt(o.bottles_used||0) > 0 ? parseInt(o.bottles_used) * parseFloat(o.bottle_price||0) : 0)), 0);
+    const bottleOrdersW = ordersInWeek.filter(o => { const pname = (o.product_name||'').toLowerCase(); return pname.includes('bottle') || pname.includes('empty'); });
+    const explicitBottleCountW = bottleOrdersW.reduce((s,o)=> s + (parseInt(o.bottles_used||0) > 0 ? parseInt(o.bottles_used) : Math.ceil(parseFloat(o.quantity||0))), 0);
+    const explicitBottleRevenueW = bottleOrdersW.reduce((s,o)=> s + parseFloat(o.total||0), 0);
+    const bottleCountW = explicitBottleCountW + bottlesFromWaterW;
+    const bottleTotalW = explicitBottleRevenueW + bottleRevenueFromWaterW;
+    const waterQtyW = ordersInWeek.reduce((s,o)=> s + computeLitres(o), 0);
+
+    outEl.innerHTML = `<div class="d-flex justify-content-between align-items-center"><div><strong>Last ${days} days</strong> • Total litres (as recorded): <strong>${qty.toFixed(2)} L</strong> • Total amount: <strong>${total.toFixed(2)} KSH</strong></div><div><button id="reportsWeeklyDownload" class="btn btn-sm btn-outline-secondary">Download CSV</button></div></div><div id="reportsWeeklyChartWrap"></div><div class="mt-2"><strong>Sales Breakdown</strong><ul class="mb-2"><li>💧 <strong>Water</strong>: ${waterQtyW.toFixed(2)} L</li><li>🔋 <strong>Bottles</strong>: ${bottleCountW} units (${bottleOrdersW.length} explicit orders + ${bottlesFromWaterW} from water sales) | KSH ${bottleTotalW.toFixed(2)}</li></ul></div>`; 
     renderSalesTrend('reportsWeeklyChartWrap', labels, data, {label:'Last 7 days'});
+
+    // wire download button
+    setTimeout(()=>{
+      const btn = document.getElementById('reportsWeeklyDownload');
+      if(btn){ btn.addEventListener('click', ()=>{
+        // build per-day bottle maps
+        const bottleCountMap = {}; const bottleRevMap = {}; labels.forEach(l=>{ bottleCountMap[l]=0; bottleRevMap[l]=0; });
+        (orders||[]).forEach(o=>{ const d = localDateKey(o.timestamp || new Date()); if(d in bottleCountMap){ const bottlesUsed = parseInt(o.bottles_used||0) > 0 ? parseInt(o.bottles_used||0) : (((o.product_name||'').toLowerCase().includes('bottle')) ? Math.ceil(parseFloat(o.quantity||0)) : 0); const bottlePrice = parseFloat(o.bottle_price||0); const bottleRev = bottlesUsed > 0 ? bottlesUsed * bottlePrice : (((o.product_name||'').toLowerCase().includes('bottle')) ? parseFloat(o.total||0) : 0); bottleCountMap[d] += bottlesUsed; bottleRevMap[d] += bottleRev; } });
+        const rows = labels.map((d,i)=> ({ date: d, amount_ksh: data[i], litres: litresData[i], bottle_count: bottleCountMap[d]||0, bottle_revenue: parseFloat((bottleRevMap[d]||0).toFixed(2)) }));
+        // totals
+        const totals = rows.reduce((acc,r)=>{ acc.amount += parseFloat(r.amount_ksh||0); acc.litres += parseFloat(r.litres||0); acc.bottles += parseInt(r.bottle_count||0); acc.bottle_rev += parseFloat(r.bottle_revenue||0); return acc; }, {amount:0, litres:0, bottles:0, bottle_rev:0});
+        rows.push({ date: 'TOTAL', amount_ksh: totals.amount.toFixed(2), litres: totals.litres.toFixed(2), bottle_count: totals.bottles, bottle_revenue: totals.bottle_rev.toFixed(2) });
+        const fname = `weekly_sales_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'')}.csv`;
+        downloadCSV(fname, rows);
+      } ); }
+    }, 50);
   }catch(e){ console.error('loadReportsWeekly', e); outEl.innerHTML = '<div class="text-danger">Failed to load weekly report</div>'; }
 }
 
@@ -947,11 +1021,38 @@ async function loadReportsMonthly(){
     const orders = await fetchJSON('/api/orders').catch(()=>null);
     if(!orders){ outEl.innerHTML = '<div class="muted">No data — backend unreachable. Start the server (python app.py).</div>'; return; }
     let qty = 0;
-    (orders||[]).forEach(o=>{ const d=localDateKey(o.timestamp || new Date()); if(d in map){ map[d] += parseFloat(o.total||0); qty += computeLitres(o); } });
+    const litresMap = {};
+    Object.keys(map).forEach(k=> litresMap[k] = 0);
+    (orders||[]).forEach(o=>{ const d=localDateKey(o.timestamp || new Date()); if(d in map){ map[d] += parseFloat(o.total||0); qty += computeLitres(o); litresMap[d] += computeLitres(o); } });
     const data = labels.map(l=>parseFloat((map[l]||0).toFixed(2)));
+    const litresData = labels.map(l=>parseFloat((litresMap[l]||0).toFixed(2)));
     const total = data.reduce((a,b)=>a+b,0);
-    outEl.innerHTML = `<p><strong>This month</strong> • Total litres (as recorded): <strong>${qty.toFixed(2)} L</strong> • Total amount: <strong>${total.toFixed(2)} KSH</strong></p><div id="reportsMonthlyChartWrap"></div>`; 
+
+    // compute bottle stats for the month (include bottles used in water orders)
+    const ordersInMonth = (orders||[]).filter(o => { const d = localDateKey(o.timestamp || new Date()); return (d in map); });
+    const bottlesFromWater = ordersInMonth.reduce((s,o)=> s + (parseInt(o.bottles_used||0) > 0 ? parseInt(o.bottles_used) : 0), 0);
+    const bottleRevenueFromWater = ordersInMonth.reduce((s,o)=> s + ((parseInt(o.bottles_used||0) > 0 ? parseInt(o.bottles_used) * parseFloat(o.bottle_price||0) : 0)), 0);
+    const bottleOrders = ordersInMonth.filter(o => { const pname = (o.product_name||'').toLowerCase(); return pname.includes('bottle') || pname.includes('empty'); });
+    const explicitBottleCount = bottleOrders.reduce((s,o)=> s + (parseInt(o.bottles_used||0) > 0 ? parseInt(o.bottles_used) : Math.ceil(parseFloat(o.quantity||0))), 0);
+    const explicitBottleRevenue = bottleOrders.reduce((s,o)=> s + parseFloat(o.total||0), 0);
+    const bottleCount = explicitBottleCount + bottlesFromWater;
+    const bottleTotal = explicitBottleRevenue + bottleRevenueFromWater;
+    const waterQty = ordersInMonth.reduce((s,o)=> s + computeLitres(o), 0);
+    const waterRevenue = total - bottleTotal;
+
+    outEl.innerHTML = `<div class="d-flex justify-content-between align-items-center"><div><strong>This month</strong> • Total litres (as recorded): <strong>${qty.toFixed(2)} L</strong> • Total amount: <strong>${total.toFixed(2)} KSH</strong></div><div><button id="reportsMonthlyDownload" class="btn btn-sm btn-outline-secondary">Download CSV</button></div></div><div id="reportsMonthlyChartWrap"></div><div class="mt-2"><strong>Sales Breakdown</strong><ul class="mb-2"><li>💧 <strong>Water</strong>: ${waterQty.toFixed(2)} L | KSH ${waterRevenue.toFixed(2)}</li><li>🔋 <strong>Bottles</strong>: ${bottleCount} units (${bottleOrders.length} explicit orders + ${bottlesFromWater} from water sales) | KSH ${bottleTotal.toFixed(2)}</li></ul></div>`; 
     renderSalesTrend('reportsMonthlyChartWrap', labels, data, {label:'This month'});
+
+    setTimeout(()=>{ const btn = document.getElementById('reportsMonthlyDownload'); if(btn) btn.addEventListener('click', ()=>{
+      // build per-day bottle maps for month
+      const bottleCountMap = {}; const bottleRevMap = {}; labels.forEach(l=>{ bottleCountMap[l]=0; bottleRevMap[l]=0; });
+      (orders||[]).forEach(o=>{ const d = localDateKey(o.timestamp || new Date()); if(d in bottleCountMap){ const bottlesUsed = parseInt(o.bottles_used||0) > 0 ? parseInt(o.bottles_used||0) : (((o.product_name||'').toLowerCase().includes('bottle')) ? Math.ceil(parseFloat(o.quantity||0)) : 0); const bottlePrice = parseFloat(o.bottle_price||0); const bottleRev = bottlesUsed > 0 ? bottlesUsed * bottlePrice : (((o.product_name||'').toLowerCase().includes('bottle')) ? parseFloat(o.total||0) : 0); bottleCountMap[d] += bottlesUsed; bottleRevMap[d] += bottleRev; } });
+      const rows = labels.map((d,i)=> ({ date: d, amount_ksh: data[i], litres: litresData[i], bottle_count: bottleCountMap[d]||0, bottle_revenue: parseFloat((bottleRevMap[d]||0).toFixed(2)) }));
+      const totals = rows.reduce((acc,r)=>{ acc.amount+=parseFloat(r.amount_ksh||0); acc.litres+=parseFloat(r.litres||0); acc.bottles+=parseInt(r.bottle_count||0); acc.bottle_rev+=parseFloat(r.bottle_revenue||0); return acc; }, {amount:0, litres:0, bottles:0, bottle_rev:0});
+      rows.push({ date: 'TOTAL', amount_ksh: totals.amount.toFixed(2), litres: totals.litres.toFixed(2), bottle_count: totals.bottles, bottle_revenue: totals.bottle_rev.toFixed(2) });
+      const fname = `monthly_sales_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'')}.csv`;
+      downloadCSV(fname, rows);
+    }); }, 50);
   }catch(e){ console.error('loadReportsMonthly', e); outEl.innerHTML = '<div class="text-danger">Failed to load monthly report</div>'; }
 }
 
@@ -984,11 +1085,14 @@ async function loadReportsDaily(dateStr){
       <label class="m-0">Date:</label>
       <input id="reportsDailyDate" type="date" value="${defaultDate}" class="form-control" style="width:180px" />
       <button id="reportsDailyRefresh" class="btn btn-sm btn-primary">Refresh</button>
+      <button id="reportsDailyDownload" class="btn btn-sm btn-outline-secondary">Download CSV</button>
     </div>
     <div id="reportsDailySummary">Loading daily report...</div>
     <div id="reportsDailyChartWrap" style="min-height:160px; margin-top:10px"></div>
     <div id="reportsDailyOrders" style="margin-top:10px"></div>
   `;
+
+  let _lastDayOrders = [];
 
   async function renderFor(dateISO){
     const summaryEl = document.getElementById('reportsDailySummary');
@@ -1003,7 +1107,7 @@ async function loadReportsDaily(dateStr){
     const totalAmount = dayOrders.reduce((s,o)=> s + (parseFloat(o.total) || (parseFloat(o.quantity||0) * parseFloat(o.unit_price||0)) || 0), 0);
     const totalQty = dayOrders.reduce((s,o)=>s + computeLitres(o), 0);
     
-    // Separate explicit water and bottle product orders. If a water sale included bottles_used or bottle_price, it still counts as litres sold.
+    // Separate explicit water and bottle product orders. Also include bottles sold as part of water orders (bottles_used + bottle_price).
     const waterOrders = dayOrders.filter(o => {
       const pname = (o.product_name || '').toLowerCase();
       return pname.includes('water') && !pname.includes('bottle') && !pname.includes('empty');
@@ -1012,11 +1116,16 @@ async function loadReportsDaily(dateStr){
       const pname = (o.product_name || '').toLowerCase();
       return pname.includes('bottle') || pname.includes('empty');
     });
-    
-    const waterTotal = waterOrders.reduce((s,o)=>s + parseFloat(o.total||0), 0);
-    const bottleTotal = bottleOrders.reduce((s,o)=>s + parseFloat(o.total||0), 0);
-    const waterQty = waterOrders.reduce((s,o)=>s + computeLitres(o), 0);
-    const bottleCount = bottleOrders.reduce((s,o)=>s + (parseInt(o.bottles_used||0) > 0 ? parseInt(o.bottles_used) : Math.ceil(parseFloat(o.quantity||0))), 0);
+
+    // totals and bottle breakdown (include bottles used in water orders)
+    const bottlesFromWater = dayOrders.reduce((s,o)=> s + (parseInt(o.bottles_used||0) > 0 ? parseInt(o.bottles_used) : 0), 0);
+    const bottleRevenueFromWater = dayOrders.reduce((s,o)=> s + ((parseInt(o.bottles_used||0) > 0 ? parseInt(o.bottles_used) * parseFloat(o.bottle_price||0) : 0)), 0);
+    const explicitBottleCount = bottleOrders.reduce((s,o)=>s + (parseInt(o.bottles_used||0) > 0 ? parseInt(o.bottles_used) : Math.ceil(parseFloat(o.quantity||0))), 0);
+    const explicitBottleRevenue = bottleOrders.reduce((s,o)=>s + parseFloat(o.total||0), 0);
+    const bottleCount = explicitBottleCount + bottlesFromWater;
+    const bottleTotal = explicitBottleRevenue + bottleRevenueFromWater;
+    const waterQty = dayOrders.reduce((s,o)=>s + computeLitres(o), 0);
+    const waterRevenue = totalAmount - bottleTotal;
     
     // hourly breakdown
     const hours = Array.from({length:24}, (_,i)=>String(i).padStart(2,'0')+':00');
@@ -1055,8 +1164,8 @@ async function loadReportsDaily(dateStr){
       <div class="mt-2">
         <strong>Sales Breakdown</strong>
         <ul class="mb-2">
-          <li>💧 <strong>Water</strong>: ${waterOrders.length} orders | ${waterQty.toFixed(2)} L | KSH ${waterTotal.toFixed(2)}</li>
-          <li>🔋 <strong>Bottles</strong>: ${bottleOrders.length} orders | ${bottleCount} units | KSH ${bottleTotal.toFixed(2)}</li>
+          <li>💧 <strong>Water</strong>: ${waterOrders.length} orders | ${waterQty.toFixed(2)} L | KSH ${waterRevenue.toFixed(2)}</li>
+          <li>🔋 <strong>Bottles</strong>: ${bottleCount} units (${bottleOrders.length} explicit orders + ${bottlesFromWater} from water sales) | KSH ${bottleTotal.toFixed(2)}</li>
         </ul>
       </div>
       <div class="mt-2">
@@ -1071,6 +1180,45 @@ async function loadReportsDaily(dateStr){
 
     // list orders
     ordersEl.innerHTML = `<h6 class="mt-3">Orders (${dayOrders.length})</h6>` + (dayOrders.length? `<div class="list-group">${dayOrders.map(o=>`<div class="list-group-item"><div><strong>${o.customer||'Unknown'}</strong> — ${o.timestamp} — KSH ${parseFloat(o.total||0).toFixed(2)} — ${orderQtyDisplay(o)}</div></div>`).join('')}</div>` : '<div class="text-muted">No orders for this day.</div>');
+    // store last fetched day orders for download
+    _lastDayOrders = dayOrders;
+    // wire daily download button
+    setTimeout(()=>{
+      const db = document.getElementById('reportsDailyDownload'); if(db){ db.removeEventListener('_click'); db.addEventListener('click', ()=>{
+        if(!_lastDayOrders || !_lastDayOrders.length){ showToast('No orders to export for this date', 'error'); return; }
+        // Build rows with bottles and litres details
+        const rows = _lastDayOrders.map(o => {
+          const bottlesUsed = parseInt(o.bottles_used||0) > 0 ? parseInt(o.bottles_used||0) : ( (o.product_name||'').toLowerCase().includes('bottle') ? Math.ceil(parseFloat(o.quantity||0)) : 0 );
+          const bottlePrice = parseFloat(o.bottle_price||0);
+          const bottleRevenue = bottlesUsed > 0 ? (bottlesUsed * bottlePrice) : ((o.product_name||'').toLowerCase().includes('bottle') ? parseFloat(o.total||0) : 0);
+          const litres = computeLitres(o);
+          return {
+            timestamp: o.timestamp,
+            customer: o.customer,
+            product: o.product_name,
+            quantity: o.quantity,
+            unit_price: o.unit_price,
+            total: parseFloat(o.total||0),
+            payment_method: o.payment_method,
+            litres: litres,
+            bottles_used: bottlesUsed,
+            bottle_price: bottlePrice,
+            bottle_revenue: bottleRevenue
+          };
+        });
+        // compute totals
+        const totals = rows.reduce((acc, r)=>{
+          acc.total_amount += parseFloat(r.total||0);
+          acc.total_litres += parseFloat(r.litres||0);
+          acc.total_bottles += parseInt(r.bottles_used||0);
+          acc.total_bottle_revenue += parseFloat(r.bottle_revenue||0);
+          return acc;
+        }, { total_amount:0, total_litres:0, total_bottles:0, total_bottle_revenue:0 });
+        rows.push({ timestamp: 'TOTAL', customer: '', product: '', quantity: '', unit_price: '', total: totals.total_amount.toFixed(2), payment_method:'', litres: totals.total_litres.toFixed(2), bottles_used: totals.total_bottles, bottle_price: '', bottle_revenue: totals.total_bottle_revenue.toFixed(2) });
+        const fname = `daily_orders_${(dateISO||defaultDate).replace(/-/g,'')}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'')}.csv`;
+        downloadCSV(fname, rows);
+      }); }
+    }, 20);
   }
 
   // wire controls
@@ -1141,13 +1289,16 @@ async function loadPLSummary(){
     const delta = prevTotal === 0 ? null : ((total - prevTotal)/prevTotal * 100);
 
     area.innerHTML = `
-      <div class="d-flex justify-content-between">
+      <div class="d-flex justify-content-between align-items-center">
         <div>
           <div><strong>Total sales</strong>: KSH ${total.toFixed(2)}</div>
           <div><strong>Total litres (as recorded)</strong>: ${qty.toFixed(2)} L</div>
         </div>
         <div>
           ${delta === null ? '<small class="text-muted">No previous period</small>' : `<div class="${delta>=0?'text-success':'text-danger'}">${delta>=0?'+':''}${delta.toFixed(1)}% vs previous</div>`}
+        </div>
+        <div>
+          <button id="plDownload" class="btn btn-sm btn-outline-secondary">Download CSV</button>
         </div>
       </div>
     `; 
@@ -1158,6 +1309,16 @@ async function loadPLSummary(){
     for(let i=days-1;i>=0;i--){ const d2 = new Date(now); d2.setDate(now.getDate()-i); const k = localDateKey(d2); labels.push(k); map[k]=0; }
     (orders||[]).forEach(o=>{ const k=localDateKey(o.timestamp || new Date()); if(k in map) map[k]+= parseFloat(o.total||0); });
     const data = labels.map(l=>parseFloat((map[l]||0).toFixed(2)));
+
+    // wire PL CSV download
+    setTimeout(()=>{
+      const pb = document.getElementById('plDownload'); if(pb){ pb.addEventListener('click', ()=>{
+        const rows = labels.map((d,i) => ({ date: d, amount_ksh: data[i] }));
+        rows.unshift({ report: 'P&L Summary', range: range, ref_date: refDateStr || '' });
+        const fname = `pl_summary_${(refDateStr||new Date().toISOString()).slice(0,10).replace(/-/g,'')}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'')}.csv`;
+        downloadCSV(fname, rows);
+      }); }
+    }, 20);
     renderSalesTrend('plTrendChartWrap', labels.map(l=>l.slice(5)), data, {label:'Revenue (last 30 days)'});
   }
 
@@ -1574,6 +1735,9 @@ async function loadReportsStock(){
     el.innerHTML = '';
     el.appendChild(hdr);
 
+    const downloadBtnWrap = document.createElement('div'); downloadBtnWrap.className = 'mb-2'; downloadBtnWrap.innerHTML = `<button id="reportsInventoryDownload" class="btn btn-sm btn-outline-secondary">Download CSV</button>`;
+    el.appendChild(downloadBtnWrap);
+
     const wrap = document.createElement('div'); wrap.className = 'table-wrapper';
     const tbl = document.createElement('table'); tbl.className = 'modern-table';
     tbl.innerHTML = '<thead><tr><th>Type</th><th>Name</th><th style="width:160px">Quantity</th></tr></thead>';
@@ -1584,6 +1748,21 @@ async function loadReportsStock(){
     (inv||[]).forEach(i=>{ const k = (i.product_name||'Unknown'); invByName[k] = (invByName[k]||0) + parseFloat(i.quantity||0); });
     Object.keys(invByName).forEach(name => { const tr = document.createElement('tr'); tr.innerHTML = `<td>Bottle</td><td>${name}</td><td>${parseFloat(invByName[name]||0).toFixed(0)}</td>`; tbody.appendChild(tr); });
     tbl.appendChild(tbody); wrap.appendChild(tbl); el.appendChild(wrap);
+
+    // wire inventory download
+    setTimeout(()=>{
+      const btn = document.getElementById('reportsInventoryDownload');
+      if(btn){ btn.addEventListener('click', ()=>{
+        const rows = [];
+        (sources||[]).forEach(s => rows.push({ type: 'Tank', name: s.name, quantity: parseFloat(s.quantity||0), unit: s.unit||'L' }));
+        Object.keys(invByName).forEach(n => rows.push({ type: 'Bottle', name: n, quantity: parseFloat(invByName[n]||0), unit: 'units' }));
+        // append totals summary rows
+        rows.push({ type: 'Summary', name: 'Total water (L)', quantity: parseFloat((sources || []).reduce((a,b)=>a + parseFloat(b.quantity||0), 0)).toFixed(2), unit: 'L' });
+        rows.push({ type: 'Summary', name: 'Total bottles (units)', quantity: parseFloat(Object.keys(invByName).reduce((a,k)=> a + parseFloat(invByName[k]||0), 0)).toFixed(0), unit: 'units' });
+        const fname = `inventory_report_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'')}.csv`;
+        downloadCSV(fname, rows);
+      }); }
+    }, 20);
   }catch(e){ console.error('loadReportsStock', e); el.innerHTML = '<div class="text-danger">Failed to load stock report</div>'; }
 }
 
