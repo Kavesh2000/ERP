@@ -16,6 +16,14 @@ import os
 app = Flask(__name__, static_folder='web', static_url_path='')
 app.secret_key = 'dev-secret-erp'  # change for production
 
+# Ensure database is initialized at startup (creates tables and default users).
+try:
+    db.init_db()
+except Exception as e:
+    # Don't crash on startup; log the error and continue - calls will fail until DB is fixed
+    import logging
+    logging.exception('Failed to initialize DB on startup: %s', e)
+
 # simple timing for request logging
 import time
 
