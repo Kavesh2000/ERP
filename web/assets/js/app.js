@@ -1,10 +1,23 @@
 async function fetchJSON(url, opts){
   opts = opts || {};
-  // include same-origin credentials by default so session cookies are sent
+  // include credentials by default so session cookies are sent (supports hosted setups)
   if(!opts.credentials) opts.credentials = 'include';
   const r = await fetch(url, opts);
   if(!r.ok) throw new Error('HTTP '+r.status);
   return r.json();
+}
+
+// Lightweight backend health check used on initial load
+async function checkBackend(timeoutMs = 5000){
+  try{
+    const controller = new AbortController();
+    const id = setTimeout(()=>controller.abort(), timeoutMs);
+    const r = await fetch('/api/ping', { method: 'GET', credentials: 'include', signal: controller.signal });
+    clearTimeout(id);
+    return r && r.ok;
+  }catch(e){
+    return false;
+  }
 }
 // Simple localStorage cache helpers to persist data across sessions
 function saveCache(key, value){
@@ -450,6 +463,14 @@ async function showDashboardIfAuthed(){
 // on page load, only show dashboard if URL hash explicitly requests it (do not auto-open dashboard on load)
 document.addEventListener('DOMContentLoaded', async ()=>{
   try{
+    const healthy = await checkBackend();
+    if(!healthy){
+      // Notify user and stop further auto-initialization
+      showToast('Backend unreachable. Ensure the server is running and allow CORS if hosted.', 'error');
+      console.error('Backend health check failed: /api/ping not reachable');
+      return;
+    }
+
     if(window.location.hash === '#dashboard'){
       await showDashboardIfAuthed();
     }

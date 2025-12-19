@@ -37,6 +37,26 @@ import time
 def _start_timer():
     g.request_start = time.time()
 
+@app.before_request
+def _handle_options_request():
+    # Respond to CORS preflight (OPTIONS) requests when CORS_ALLOW_ORIGIN is set
+    if request.method == 'OPTIONS':
+        try:
+            resp = app.make_response(('', 200))
+            cors_origin = os.environ.get('CORS_ALLOW_ORIGIN')
+            if cors_origin:
+                origin = request.headers.get('Origin')
+                if cors_origin == 'auto' and origin:
+                    resp.headers['Access-Control-Allow-Origin'] = origin
+                else:
+                    resp.headers['Access-Control-Allow-Origin'] = cors_origin
+                resp.headers['Access-Control-Allow-Credentials'] = 'true'
+                resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+                resp.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+            return resp
+        except Exception:
+            return ('', 200)
+
 @app.after_request
 def _log_request(response):
     try:
@@ -64,8 +84,14 @@ def _log_request(response):
         try:
             cors_origin = os.environ.get('CORS_ALLOW_ORIGIN')
             if cors_origin:
-                response.headers['Access-Control-Allow-Origin'] = cors_origin
+                origin = request.headers.get('Origin')
+                if cors_origin == 'auto' and origin:
+                    response.headers['Access-Control-Allow-Origin'] = origin
+                else:
+                    response.headers['Access-Control-Allow-Origin'] = cors_origin
                 response.headers['Access-Control-Allow-Credentials'] = 'true'
+                response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+                response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
         except Exception:
             pass
     except Exception:
@@ -145,6 +171,12 @@ def api_whoami():
     if not u:
         return jsonify({'error': 'unauthenticated'}), 401
     return jsonify({'user': u})
+
+
+@app.route('/api/ping')
+def api_ping():
+    """Simple health endpoint used by the SPA to detect backend availability."""
+    return jsonify({'ok': True})
 
 
 @app.route('/api/logout', methods=['POST'])
