@@ -13,15 +13,15 @@
         <div class="col-md-6">
           <div class="card p-4 shadow">
             <h3 class="mb-3">Login</h3>
-            <p class="text-muted">Use admin/admin or user/user for demo.</p>
+            <p class="text-muted">Tap Login to sign in as a guest user (no username/password needed). Choose <strong>Admin</strong> to provide username and password.</p>
             <form id="loginForm">
-              <div class="mb-3">
+              <div class="mb-3" id="usernameRow" style="display:none;">
                 <label class="form-label">Username</label>
-                <input name="username" class="form-control" required />
+                <input name="username" class="form-control" />
               </div>
-              <div class="mb-3">
+              <div class="mb-3" id="passwordRow" style="display:none;">
                 <label class="form-label">Password</label>
-                <input name="password" type="password" class="form-control" required />
+                <input name="password" type="password" class="form-control" />
               </div>
               <div class="mb-3">
                 <label class="form-label">Login as</label>
@@ -39,41 +39,69 @@
     </main>
 
     <script>
-      document.getElementById('loginForm').addEventListener('submit', async function(e){
-        e.preventDefault();
-        const f = e.target;
-        const data = {
-          username: f.username.value,
-          password: f.password.value,
-          role: f.role ? f.role.value : undefined
-        };
-
-        try {
-          const res = await fetch('/api/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include', // <-- updated from same-origin
-            body: JSON.stringify(data)
-          });
-
-          console.log('Response status:', res.status);
-          console.log('Set-Cookie header:', res.headers.get('set-cookie'));
-
-          const j = await res.json().catch(() => ({}));
-
-          if (res.ok && j.user) {
-            window.currentUser = j.user;
-            // navigate to dashboard
-            window.location.href = '/dashboard';
+      (function(){
+        const form = document.getElementById('loginForm');
+        const roleSel = form.querySelector('select[name="role"]');
+        const usernameRow = document.getElementById('usernameRow');
+        const usernameInput = form.querySelector('input[name="username"]');
+        const pwRow = document.getElementById('passwordRow');
+        const pwInput = form.querySelector('input[name="password"]');
+        function toggleFields(){
+          if(!roleSel || !usernameRow || !pwRow) return;
+          if(roleSel.value === 'admin'){
+            usernameRow.style.display = '';
+            usernameInput.required = true;
+            pwRow.style.display = '';
+            pwInput.required = true;
           } else {
-            document.getElementById('msg').textContent = j.error || 'Login failed';
+            usernameRow.style.display = 'none';
+            usernameInput.required = false;
+            pwRow.style.display = 'none';
+            pwInput.required = false;
           }
-
-        } catch(err) {
-          console.error('Login request failed:', err);
-          document.getElementById('msg').textContent = 'Login request failed';
         }
-      });
+        if(roleSel){ roleSel.addEventListener('change', toggleFields); toggleFields(); }
+
+        form.addEventListener('submit', async function(e){
+          e.preventDefault();
+          const data = { role: roleSel ? roleSel.value : 'user' };
+          if(usernameRow && usernameRow.style.display !== 'none' && usernameInput && usernameInput.value){ data.username = usernameInput.value }
+          if(pwRow && pwRow.style.display !== 'none' && pwInput && pwInput.value){ data.password = pwInput.value }
+
+          try {
+            let res;
+            try{
+              res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(data)
+              });
+            }catch(e){ res = null }
+
+            if(res && res.ok){
+              const j = await res.json().catch(() => ({}));
+              if (j && j.user) { window.currentUser = j.user; window.location.href = '/#dashboard'; }
+              else { document.getElementById('msg').textContent = j.error || 'Login failed'; }
+            } else {
+              // for regular users (role != admin) attempt guest login
+              if(!res || !res.ok){
+                if(data && data.role && data.role !== 'admin'){
+                  try{
+                    const g = await fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify({role:'user'}) });
+                    if(g && g.ok){ const gj = await g.json().catch(()=>({})); if(gj && gj.user){ window.currentUser = gj.user; window.location.href = '/#dashboard'; return; }}
+                  }catch(e){ }
+                }
+              }
+              const j = res ? await res.json().catch(() => ({})) : { error: 'Login request failed' };
+              document.getElementById('msg').textContent = j.error || 'Login failed';
+            }
+          } catch(err) {
+            console.error('Login request failed:', err);
+            document.getElementById('msg').textContent = 'Login request failed';
+          }
+        });
+      })();
     </script>
   </body>
 </html>

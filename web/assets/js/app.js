@@ -1,7 +1,7 @@
 async function fetchJSON(url, opts){
   opts = opts || {};
   // include same-origin credentials by default so session cookies are sent
-  if(!opts.credentials) opts.credentials = 'same-origin';
+  if(!opts.credentials) opts.credentials = 'include';
   const r = await fetch(url, opts);
   if(!r.ok) throw new Error('HTTP '+r.status);
   return r.json();
@@ -148,21 +148,30 @@ document.addEventListener('click', (ev)=>{
 });
 
 // Hide admin-only sidebar menu items for non-admin users
+// For regular users (non-admin), only the Sales menu should be visible.
 function hideAdminMenuItems(){
   try{
     const isAdmin = window.currentUser && window.currentUser.role === 'admin';
-    // Find the Admin parent menu item
-    const adminParent = Array.from(document.querySelectorAll('#appSidebar .sidebar-parent')).find(p => p.textContent.includes('Admin'));
-    if(!adminParent) return;
-    if(isAdmin){
-      // reveal admin menu: remove the admin-only class and clear any inline hide
-      adminParent.classList.remove('admin-only-menu');
-      adminParent.style.display = '';
-    } else {
-      // hide admin menu: add the admin-only class and hide it
-      adminParent.classList.add('admin-only-menu');
-      adminParent.style.display = 'none';
-    }
+    const parents = Array.from(document.querySelectorAll('#appSidebar .sidebar-parent'));
+    parents.forEach(p => {
+      const labelEl = p.querySelector('.label');
+      const label = labelEl ? labelEl.textContent.trim() : '';
+      if(isAdmin){
+        // admins see everything
+        p.style.display = '';
+        p.classList.remove('admin-only-menu');
+        p.classList.remove('hidden-for-user');
+      } else {
+        // non-admins: keep only the Sales menu visible
+        if(label === 'Sales' || label.includes('Sales')){
+          p.style.display = '';
+          p.classList.remove('hidden-for-user');
+        } else {
+          p.style.display = 'none';
+          p.classList.add('hidden-for-user');
+        }
+      }
+    });
   }catch(e){ console.warn('hideAdminMenuItems failed', e); }
 } 
 
@@ -222,7 +231,14 @@ async function initDashboard(){
       }
     }catch(e){}
     // Show default dashboard section
-    try{ showDashboardSection('dashboard_daily_sales'); }catch(e){}
+    try{
+      if(window.currentUser && window.currentUser.role === 'admin'){
+        showDashboardSection('dashboard_daily_sales');
+      } else {
+        // For regular users, default to New Refill Sale
+        showDashboardSection('sales_new_order');
+      }
+    }catch(e){}
   }catch(e){ console.error('initDashboard', e); }
 }
 
@@ -431,20 +447,14 @@ async function showDashboardIfAuthed(){
   }catch(e){ console.error('showDashboardIfAuthed', e); }
 }
 
-// on page load, if the URL has #dashboard or user has a session, try to show dashboard
+// on page load, only show dashboard if URL hash explicitly requests it (do not auto-open dashboard on load)
 document.addEventListener('DOMContentLoaded', async ()=>{
   try{
-    // if hash requests dashboard, or default to checking session to auto-open dashboard
     if(window.location.hash === '#dashboard'){
       await showDashboardIfAuthed();
-      return;
     }
-    // try quietly to see if user is logged in; if yes, show dashboard
-    const r = await fetch('/api/whoami');
-    if(r.ok){
-      await showDashboardIfAuthed();
-    }
-  }catch(e){ /* ignore - user not logged in */ }
+    // otherwise: do not auto-open dashboard; leave user at home page
+  }catch(e){ /* ignore */ }
 });
 
 // As a fallback, ensure sidebar elements have direct handlers in case delegation fails
@@ -2158,7 +2168,7 @@ async function submitNewOrder(){
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-        credentials: 'same-origin'
+        credentials: 'include'
       });
       body = await resp.json().catch(() => null);
       console.log('Order response:', resp.status, body);
@@ -2358,7 +2368,7 @@ async function loadAdminManagePrices(){
           const response = await fetch('/api/products/' + productId, {
             method: 'PUT',
             headers: {'Content-Type': 'application/json'},
-            credentials: 'same-origin',
+            credentials: 'include',
             body: JSON.stringify({ unit_price: newPrice })
           });
           
@@ -2391,7 +2401,7 @@ async function loadAdminManagePrices(){
         const productId = btn.getAttribute('data-product-id');
         btn.disabled = true;
         try{
-          const resp = await fetch('/api/products/' + productId, { method: 'DELETE', credentials: 'same-origin' });
+          const resp = await fetch('/api/products/' + productId, { method: 'DELETE', credentials: 'include' });
           if(!resp.ok){ const err = await resp.json().catch(()=>({})); throw new Error(err.error || 'Failed to delete product'); }
           alert('Product deleted');
           if(typeof loadAdminManagePrices === 'function') await loadAdminManagePrices();

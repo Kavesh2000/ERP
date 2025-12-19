@@ -71,7 +71,7 @@
       if(!items || items.length === 0) return 0;
       for(const it of items){
         try{
-          const resp = await fetch('/api/orders', { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify(it.payload), credentials: 'same-origin' });
+          const resp = await fetch('/api/orders', { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify(it.payload), credentials: 'include' });
           if(resp && resp.ok){
             await remove(it.id);
             // optionally notify user; we'll dispatch a custom event

@@ -5,7 +5,12 @@ Tables:
 - sales(id INTEGER PRIMARY KEY, product_id INTEGER, quantity INTEGER, unit_price REAL, total REAL, timestamp TEXT)
 
 This module uses only Python's stdlib sqlite3.
+
 """
+import os
+DB_PATH = os.path.join(os.path.dirname(__file__), "erp.db")  # relative path to your project root
+
+
 from pathlib import Path
 import sqlite3
 from datetime import datetime, timezone
@@ -509,6 +514,41 @@ def authenticate_user(username: str, password: str, db_path: Path | str | None =
     r = cur.fetchone()
     conn.close()
     return dict(r) if r else None
+
+
+# --- User helpers ---
+def get_user_by_username(username: str, db_path: Path | str | None = None) -> dict | None:
+    """Return user row (id, username, role) or None if not found."""
+    conn = connect(db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT id, username, role FROM users WHERE username = ?", (username,))
+    r = cur.fetchone()
+    conn.close()
+    return dict(r) if r else None
+
+
+def create_user(username: str, password: str = '', role: str = 'user', db_path: Path | str | None = None) -> dict:
+    """Create a user with the given username/password/role and return the new row.
+    If the user already exists, return the existing row.
+    """
+    conn = connect(db_path)
+    cur = conn.cursor()
+    try:
+        cur.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", (username, password or '', role))
+        conn.commit()
+        uid = cur.lastrowid
+    except Exception:
+        # probably already exists; fall back to selecting
+        cur.execute("SELECT id FROM users WHERE username = ?", (username,))
+        r = cur.fetchone()
+        uid = r[0] if r else None
+    if uid is None:
+        conn.close()
+        return get_user_by_username(username, db_path)
+    cur.execute("SELECT id, username, role FROM users WHERE id = ?", (uid,))
+    row = cur.fetchone()
+    conn.close()
+    return dict(row)
 
 
 def list_products(db_path: Path | str | None = None):

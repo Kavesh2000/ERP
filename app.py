@@ -15,6 +15,12 @@ import os
 
 app = Flask(__name__, static_folder='web', static_url_path='')
 app.secret_key = 'dev-secret-erp'  # change for production
+# Configure session cookie options useful when hosting behind a different origin/proxy
+# SESSION_COOKIE_SAMESITE: set to 'None' in environments where cookies must be sent cross-site
+# SESSION_COOKIE_SECURE: set to '1' in the environment when serving over HTTPS in production
+app.config['SESSION_COOKIE_SAMESITE'] = os.environ.get('SESSION_COOKIE_SAMESITE', 'None')
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', '0') == '1'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
 
 # Ensure database is initialized at startup (creates tables and default users).
 try:
@@ -54,6 +60,14 @@ def _log_request(response):
             db.log_api_call(method=request.method, path=request.path, status=response.status_code, user_id=user_id, payload=payload, duration_ms=duration_ms, ip=ip)
         except Exception:
             pass
+        # If hosting under a different origin, allow setting CORS origin via env var
+        try:
+            cors_origin = os.environ.get('CORS_ALLOW_ORIGIN')
+            if cors_origin:
+                response.headers['Access-Control-Allow-Origin'] = cors_origin
+                response.headers['Access-Control-Allow-Credentials'] = 'true'
+        except Exception:
+            pass
     except Exception:
         pass
     return response
@@ -81,12 +95,46 @@ def api_login():
     data = request.get_json() or {}
     username = data.get('username')
     password = data.get('password')
-    expected_role = data.get('role')
-    user = db.authenticate_user(username, password)
+    role = data.get('role') or 'user'
+
+    user = None
+    # Admin login: require username + password
+    if role == 'admin':
+        if not username:
+            return jsonify({'error': 'username required for admin'}), 400
+        if not password:
+            return jsonify({'error': 'password required for admin'}), 400
+        user = db.authenticate_user(username, password)
+        if not user:
+            return jsonify({'error': 'Invalid credentials'}), 401
+    else:
+        # Regular user login: allow passwordless and username-less login
+        if username:
+            if password:
+                user = db.authenticate_user(username, password)
+                if not user:
+                    return jsonify({'error': 'Invalid credentials'}), 401
+                if user.get('role') == 'admin':
+                    return jsonify({'error': 'admin login requires password'}), 403
+            else:
+                user = db.get_user_by_username(username)
+                if user is None:
+                    user = db.create_user(username, password='', role='user')
+                else:
+                    if user.get('role') == 'admin':
+                        return jsonify({'error': 'admin login requires password'}), 403
+        else:
+            # no username provided: create a guest user for this session
+            import secrets, time
+            guest_name = f"guest-{int(time.time())}-{secrets.token_hex(3)}"
+            user = db.create_user(guest_name, password='', role='user')
+
     if not user:
         return jsonify({'error': 'Invalid credentials'}), 401
-    if expected_role and user.get('role') != expected_role:
-        return jsonify({'error': f'Invalid role — user is {user.get("role")}, not {expected_role}'}), 403
+
+    if role and user.get('role') != role:
+        return jsonify({'error': f'Invalid role — user is {user.get("role")}, not {role}'}), 403
+
     session['user'] = {'id': user['id'], 'username': user['username'], 'role': user['role']}
     return jsonify({'ok': True, 'user': session['user']})
 

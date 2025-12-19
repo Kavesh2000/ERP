@@ -132,15 +132,15 @@
           <div class="col-md-6">
             <div class="card p-4 shadow">
               <h3 class="mb-3">Login</h3>
-              <p class="text-muted">Use admin/admin or user/user for demo.</p>
+              <p class="text-muted">Login with any username (no password required for regular users). Admins must provide a password.</p>
               <form id="indexLoginForm">
-                <div class="mb-3">
+                <div class="mb-3" id="indexUsernameRow" style="display:none;">
                   <label class="form-label">Username</label>
-                  <input name="username" class="form-control" required />
+                  <input name="username" class="form-control" />
                 </div>
-                <div class="mb-3">
+                <div class="mb-3" id="indexPasswordRow" style="display:none;">
                   <label class="form-label">Password</label>
-                  <input name="password" type="password" class="form-control" required />
+                  <input name="password" type="password" class="form-control" />
                 </div>
                 <div class="mb-3">
                   <label class="form-label">Login as</label>
@@ -637,20 +637,41 @@
       document.addEventListener('DOMContentLoaded', ()=>{
         const f = document.getElementById('indexLoginForm');
         if(f){
+            const roleSel = f.role;
+            const usernameRow = document.getElementById('indexUsernameRow');
+            const usernameInput = f.username;
+            const pwRow = document.getElementById('indexPasswordRow');
+            const pwInput = f.password;
+            function toggleFields(){ if(roleSel && usernameRow && pwRow){ if(roleSel.value === 'admin'){ usernameRow.style.display = ''; usernameInput.required = true; pwRow.style.display = ''; pwInput.required = true } else { usernameRow.style.display = 'none'; usernameInput.required = false; pwRow.style.display = 'none'; pwInput.required = false } } }
+            if(roleSel){ roleSel.addEventListener('change', toggleFields); toggleFields(); }
+
             f.addEventListener('submit', async (e)=>{
             e.preventDefault();
-            const data = {username: f.username.value, password: f.password.value, role: f.role ? f.role.value : undefined};
-            const res = await fetch('/api/login', {method:'POST', headers:{'content-type':'application/json'}, credentials:'same-origin', body:JSON.stringify(data)});
+            const data = { role: f.role ? f.role.value : 'user' };
+            if(usernameRow && usernameRow.style.display !== 'none' && usernameInput && usernameInput.value){ data.username = usernameInput.value }
+            if(pwRow && pwRow.style.display !== 'none' && pwInput && pwInput.value){ data.password = pwInput.value }
+            let res;
+            try {
+              res = await fetch('/api/login', {method:'POST', headers:{'content-type':'application/json'}, credentials:'include', body:JSON.stringify(data)});
+            } catch(err){
+              // network/fetch failed
+              res = null;
+            }
             const msg = document.getElementById('indexLoginMsg');
-            if(res.ok){
-              // store returned user on the client (helps the SPA know role immediately)
+            if(res && res.ok){
               const j = await res.json().catch(()=>({}));
               if(j && j.user){ window.currentUser = j.user; try{ updateAuthButton(); }catch(e){} }
-              // show dashboard and initialize
               showView('dashboard');
               try{ await initDashboard(); }catch(err){ console.error(err); }
             } else {
-              const j = await res.json().catch(()=>({error:'Login failed'}));
+              // Attempt a guest login for regular users if the explicit login failed
+              if((!res || !res.ok) && data && data.role && data.role !== 'admin'){
+                try{
+                  const g = await fetch('/api/login', {method:'POST', headers:{'content-type':'application/json'}, credentials:'include', body:JSON.stringify({role:'user'})});
+                  if(g && g.ok){ const j = await g.json().catch(()=>({})); if(j && j.user){ window.currentUser = j.user; try{ updateAuthButton(); }catch(e){} } showView('dashboard'); try{ await initDashboard(); }catch(err){ console.error(err); } return; }
+                }catch(e){ /* guest fallback failed */ }
+              }
+              const j = res ? await res.json().catch(()=>({error:'Login failed'})) : {error: 'Login request failed'};
               msg.textContent = j.error || 'Login failed';
             }
           });
